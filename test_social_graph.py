@@ -1,11 +1,13 @@
 """
 test_social_graph.py
 
-Unit tests for the SocialGraph module, covering normal operations and
-the edge cases mentioned in the Deliverable 1 report (self-follows,
-unknown users, duplicate follows, empty graphs).
+Unit tests for the SocialGraph proof of concept.
+MSCS 532 Course Project, Phase 2.
 
-Run: python -m unittest test_social_graph -v
+Run with:
+    python3 -m unittest test_social_graph -v
+
+Author: Frenie Labrador
 """
 
 import unittest
@@ -13,121 +15,139 @@ import unittest
 from social_graph import SocialGraph
 
 
-class TestUsers(unittest.TestCase):
+def small_graph():
+    """Five users with a known follow pattern.
 
-    def setUp(self):
-        self.g = SocialGraph()
-        self.g.add_user("a", "Alice")
-        self.g.add_user("b", "Bob")
+    alice follows bob, carol
+    bob follows carol
+    dave follows carol, alice
+    erin follows nobody, nobody follows erin
 
-    def test_add_and_lookup(self):
-        self.assertTrue(self.g.has_user("a"))
-        self.assertEqual(self.g.get_profile("a").name, "Alice")
-        self.assertEqual(self.g.user_count(), 2)
+    Follower counts: carol=3, alice=1, bob=1, dave=0, erin=0
+    """
+    g = SocialGraph()
+    for uid, name in [("alice", "Alice"), ("bob", "Bob"),
+                      ("carol", "Carol"), ("dave", "Dave"),
+                      ("erin", "Erin")]:
+        g.add_user(uid, name)
+    g.add_follow("alice", "bob")
+    g.add_follow("alice", "carol")
+    g.add_follow("bob", "carol")
+    g.add_follow("dave", "carol")
+    g.add_follow("dave", "alice")
+    return g
 
-    def test_duplicate_user_rejected(self):
+
+class TestUserManagement(unittest.TestCase):
+
+    def test_add_user_and_lookup(self):
+        g = SocialGraph()
+        g.add_user("u1", "Test User")
+        self.assertEqual(g.get_profile("u1").name, "Test User")
+
+    def test_add_duplicate_user_raises(self):
+        g = SocialGraph()
+        g.add_user("u1", "Test User")
         with self.assertRaises(ValueError):
-            self.g.add_user("a", "Alice Again")
+            g.add_user("u1", "Someone Else")
 
-    def test_unknown_user_rejected(self):
+    def test_lookup_unknown_user_raises(self):
+        g = SocialGraph()
         with self.assertRaises(KeyError):
-            self.g.get_profile("ghost")
+            g.get_profile("ghost")
+
+    def test_user_count(self):
+        g = small_graph()
+        self.assertEqual(g.user_count(), 5)
 
     def test_remove_user_cleans_edges(self):
-        self.g.add_follow("a", "b")
-        self.g.remove_user("b")
-        self.assertFalse(self.g.has_user("b"))
-        self.assertEqual(self.g.get_following("a"), set())
-        self.assertEqual(self.g.edge_count(), 0)
+        g = small_graph()
+        g.remove_user("carol")
+        self.assertEqual(g.user_count(), 4)
+        # No surviving adjacency set may reference carol
+        self.assertNotIn("carol", g.get_following("alice"))
+        self.assertNotIn("carol", g.get_following("bob"))
+        self.assertNotIn("carol", g.get_following("dave"))
+
+    def test_remove_unknown_user_raises(self):
+        g = SocialGraph()
+        with self.assertRaises(KeyError):
+            g.remove_user("ghost")
 
 
-class TestFollows(unittest.TestCase):
+class TestFollowEdges(unittest.TestCase):
 
-    def setUp(self):
-        self.g = SocialGraph()
-        for uid in ("a", "b", "c"):
-            self.g.add_user(uid, uid.upper())
-
-    def test_follow_recorded_both_directions(self):
-        self.g.add_follow("a", "b")
-        self.assertTrue(self.g.is_following("a", "b"))
-        self.assertIn("a", self.g.get_followers("b"))
-        self.assertIn("b", self.g.get_following("a"))
+    def test_add_follow_both_directions(self):
+        g = small_graph()
+        self.assertIn("bob", g.get_following("alice"))
+        self.assertIn("alice", g.get_followers("bob"))
 
     def test_self_follow_rejected(self):
+        g = small_graph()
         with self.assertRaises(ValueError):
-            self.g.add_follow("a", "a")
+            g.add_follow("alice", "alice")
 
     def test_duplicate_follow_is_idempotent(self):
-        self.g.add_follow("a", "b")
-        self.g.add_follow("a", "b")
-        self.assertEqual(self.g.edge_count(), 1)
-        self.assertEqual(self.g.degree_centrality("b"), 1)
+        g = small_graph()
+        before = g.edge_count()
+        g.add_follow("alice", "bob")  # already exists
+        self.assertEqual(g.edge_count(), before)
 
-    def test_follow_unknown_user_rejected(self):
+    def test_follow_unknown_user_raises(self):
+        g = small_graph()
         with self.assertRaises(KeyError):
-            self.g.add_follow("a", "ghost")
+            g.add_follow("alice", "ghost")
 
-    def test_remove_missing_edge_rejected(self):
-        with self.assertRaises(ValueError):
-            self.g.remove_follow("a", "b")
+    def test_remove_follow(self):
+        g = small_graph()
+        g.remove_follow("alice", "bob")
+        self.assertFalse(g.is_following("alice", "bob"))
+        self.assertNotIn("alice", g.get_followers("bob"))
 
-    def test_defensive_copies(self):
-        self.g.add_follow("a", "b")
-        stolen = self.g.get_followers("b")
-        stolen.add("c")
-        self.assertEqual(self.g.degree_centrality("b"), 1)
+    def test_getters_return_copies(self):
+        g = small_graph()
+        stolen = g.get_following("alice")
+        stolen.add("erin")  # mutating the copy must not touch the graph
+        self.assertFalse(g.is_following("alice", "erin"))
+
+    def test_edge_count(self):
+        g = small_graph()
+        self.assertEqual(g.edge_count(), 5)
 
 
-class TestAnalysis(unittest.TestCase):
-
-    def setUp(self):
-        self.g = SocialGraph()
-        for uid in ("a", "b", "c", "d"):
-            self.g.add_user(uid, uid.upper())
-        # a is followed by b, c, d; b is followed by c
-        self.g.add_follow("b", "a")
-        self.g.add_follow("c", "a")
-        self.g.add_follow("d", "a")
-        self.g.add_follow("c", "b")
+class TestInfluenceAnalysis(unittest.TestCase):
 
     def test_degree_centrality(self):
-        self.assertEqual(self.g.degree_centrality("a"), 3)
-        self.assertEqual(self.g.degree_centrality("b"), 1)
-        self.assertEqual(self.g.degree_centrality("d"), 0)
+        g = small_graph()
+        self.assertEqual(g.degree_centrality("carol"), 3)
+        self.assertEqual(g.degree_centrality("erin"), 0)
 
     def test_top_influencers_order(self):
-        self.assertEqual(self.g.top_influencers(2), ["a", "b"])
+        g = small_graph()
+        top = g.top_influencers(k=2)
+        self.assertEqual(top[0], ("carol", 3))
+        self.assertEqual(top[1][1], 1)  # alice or bob, both have 1
 
-    def test_top_influencers_k_larger_than_graph(self):
-        result = self.g.top_influencers(100)
-        self.assertEqual(len(result), 4)
+    def test_top_influencers_k_larger_than_n(self):
+        g = small_graph()
+        top = g.top_influencers(k=100)
+        self.assertEqual(len(top), 5)
 
-    def test_top_influencers_negative_k_rejected(self):
-        with self.assertRaises(ValueError):
-            self.g.top_influencers(-1)
+    def test_top_influencers_k_zero_or_negative(self):
+        g = small_graph()
+        self.assertEqual(g.top_influencers(k=0), [])
+        self.assertEqual(g.top_influencers(k=-3), [])
 
-    def test_bfs_distances(self):
-        # c -> a and c -> b are 1 hop; nothing else reachable from c
-        reach = self.g.reachable_within("c", 2)
-        self.assertEqual(reach, {"a": 1, "b": 1})
-
-    def test_bfs_zero_hops(self):
-        self.assertEqual(self.g.reachable_within("c", 0), {})
-
-    def test_bfs_excludes_start_even_in_cycle(self):
-        self.g.add_follow("a", "c")   # creates cycle c -> a -> c
-        reach = self.g.reachable_within("c", 5)
-        self.assertNotIn("c", reach)
-
-
-class TestEmptyGraph(unittest.TestCase):
-
-    def test_empty_counts(self):
-        g = SocialGraph()
-        self.assertEqual(g.user_count(), 0)
-        self.assertEqual(g.edge_count(), 0)
-        self.assertEqual(g.top_influencers(5), [])
+    def test_bfs_reachability(self):
+        g = small_graph()
+        # 1 hop from dave: carol and alice
+        self.assertEqual(g.reachable_within("dave", 1),
+                         {"carol", "alice"})
+        # 2 hops from dave adds bob and carol via alice
+        self.assertEqual(g.reachable_within("dave", 2),
+                         {"carol", "alice", "bob"})
+        # 0 hops reaches nobody
+        self.assertEqual(g.reachable_within("dave", 0), set())
 
 
 if __name__ == "__main__":

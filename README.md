@@ -1,22 +1,48 @@
-# Social Network Influence Detection
+# MSCS532 Course Project: Social Network Influence Analysis
 
-MSCS 532 course project. Data structures for identifying influential users in a directed social network, implemented in Python with the standard library only.
+Proof of concept implementation for detecting influential users in a
+directed social network. Built for MSCS 532 (Algorithms and Data
+Structures), University of the Cumberlands.
 
-## Structures
+## Data Structures
 
-Adjacency list (dict of sets) for the follow graph, with a mirrored reverse index so follower lookups are O(1). Hash table (dict) for user profiles. Max-heap (heapq) for top-k influencer ranking. BFS with an explicit deque for hop-limited reachability.
+- **Adjacency list** (dict of sets): the directed follow graph, mirrored
+  in both directions so follower and following lookups are both O(1)
+- **Hash table** (dict): user ID to profile object mapping
+- **Max-heap** (heapq with negated keys): top-k influencer ranking in
+  O(n + k log n)
 
 ## Files
 
-`social_graph.py` contains the SocialGraph class and all core operations.
-`demo.py` runs a small hand-built example and a 5,000-user synthetic benchmark.
-`test_social_graph.py` contains 18 unit tests covering normal and edge cases.
+| File | Purpose |
+|------|---------|
+| `social_graph.py` | Core `SocialGraph` class and `Profile` container |
+| `test_social_graph.py` | 18 unit tests (user management, edges, analysis) |
+| `demo.py` | Two-part demonstration: hand-built network + 5,000-user synthetic network with timing |
 
-## Usage
+## Running
 
+No dependencies beyond the Python standard library (3.8+).
+
+```bash
+# Run the test suite
+python3 -m unittest test_social_graph -v
+
+# Run the demonstration
+python3 demo.py
 ```
-python demo.py
-python -m unittest test_social_graph -v
-```
 
-Requires Python 3.8+. No external dependencies.
+## Phase 2 Baseline Numbers
+
+On the test machine, the synthetic network (5,000 users, 87,288 edges,
+seed fixed at 42):
+
+- Build time: ~0.7 s
+- Top-10 ranking: < 7 ms
+- 2-hop BFS from a mid-ranked user: < 1 ms (213 users reached)
+
+These serve as the baseline for Phase 3 optimization comparisons.
+
+## Author
+
+Frenie Labrador
