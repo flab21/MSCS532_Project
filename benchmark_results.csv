@@ -1,0 +1,9 @@
+implementation,n_users,edges,build_secs,cold_rank_ms,repeat100_rank_ms,bfs_2hop_ms,bfs_reached,peak_mem_mb,top10_first
+SocialGraph,5000,87288,0.0776,0.8359,93.0659,0.0658,213,12.7,user0
+OptimizedSocialGraph,5000,87288,0.0837,1.3125,0.0237,0.0552,213,12.65,user0
+SocialGraph,25000,452192,0.4976,5.6053,550.5124,0.0821,227,73.01,user0
+OptimizedSocialGraph,25000,452192,0.5707,7.115,0.0286,0.0809,227,73.17,user0
+SocialGraph,50000,914263,1.1855,18.0784,1689.0857,0.1001,255,150.03,user0
+OptimizedSocialGraph,50000,914263,1.305,14.3487,0.0366,0.1037,255,150.35,user0
+SocialGraph,100000,1844388,2.6187,31.0536,3253.0688,0.1192,264,305.45,user0
+OptimizedSocialGraph,100000,1844388,3.2336,27.1106,0.0339,0.1155,264,306.09,user0
